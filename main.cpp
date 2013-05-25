@@ -309,11 +309,11 @@ void FillInValues(VehicleSense & vs, bool bFillMag )
 //Nose Down Ax=0 Ay=1 Az=0
 //Right wing down Ax=1 Ay=0 Az=0
 
-	        vs.Ax=(float)ImuResult.Ay*Kax;
+	        vs.Ax=(float)(ImuResult.Ay-SensorConfig.accel_zero[1])*Kax;
+										
+			vs.Ay=(float)(ImuResult.Ax-SensorConfig.accel_zero[0])*Kay;
 	        
-			vs.Ax=(float)ImuResult.Ax*Kay;
-	        
-			vs.Az=(float)ImuResult.Az*Kaz;
+			vs.Az=(float)(ImuResult.Az-SensorConfig.accel_zero[2])*Kaz;
 
 //Need
 //Mx 0.5, My=0; Mz=-0.86  -> Heading ~ 0
@@ -464,6 +464,20 @@ case 'C':
 	maxx=minx=ImuResult.Ax;
 	miny=maxy=ImuResult.Ay;
 	minz=maxz=ImuResult.Az;
+case 'S':
+	{
+	
+	iprintf("Ax,y,z zero?");
+	int i0,i1,i2;
+	iscanf("%d,%d,%d",&i0,&i1,&i2);
+	SensorConfig.accel_zero[0]=i0;
+	SensorConfig.accel_zero[1]=i1;
+	SensorConfig.accel_zero[2]=i2;
+	SaveSensorConfig();
+	}
+case 'V':
+	 iprintf("\r\nAX zeros:%d,%d,%d\r\n",SensorConfig.accel_zero[0],SensorConfig.accel_zero[1] ,SensorConfig.accel_zero[2]); 
+	break;
 case 'T':
 	iprintf("Hit X to exit loop\r\n");
 	while((!charavail(0)) || (sgetchar(0)!='X'))
@@ -492,6 +506,7 @@ case 'T':
 			}
          }
 	   }
+
 	   iprintf("Ax=%5d Ay=%5d Az=%5d\r\n",sax/500,say/500,saz/500);
       }//Test loop
      }//Switch
