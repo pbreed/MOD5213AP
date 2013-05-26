@@ -256,9 +256,7 @@ return v;
 const float Kgx=1.0*(2.663161E-4);	//32768 = 500 dps
 const float Kgy=1.0*(2.663161E-4);	//32768 = 500 DPS
 const float Kgz=1.0*(2.663161E-4);	//32768= 500 DPS
-const float Kax= (-1.0/2000.0);
-const float Kay= (1.0/2000.0);
-const float Kaz= (1.0/2000.0);
+const float Ka= (1.0/2000.0);
 
 // Need:
 //+Gy = + pitch (Nose Up)
@@ -309,11 +307,11 @@ void FillInValues(VehicleSense & vs, bool bFillMag )
 //Nose Down Ax=0 Ay=1 Az=0
 //Right wing down Ax=1 Ay=0 Az=0
 
-	        vs.Ax=(float)(ImuResult.Ay-SensorConfig.accel_zero[1])*Kax;
+	        vs.Ax=(float)(ImuResult.Ay-SensorConfig.accel_zero[1])*Ka;
 										
-			vs.Ay=(float)(ImuResult.Ax-SensorConfig.accel_zero[0])*Kay;
+			vs.Ay=(float)(ImuResult.Ax-SensorConfig.accel_zero[0])*Ka;
 	        
-			vs.Az=(float)(ImuResult.Az-SensorConfig.accel_zero[2])*Kaz;
+			vs.Az=(float)(ImuResult.Az-SensorConfig.accel_zero[2])*Ka;
 
 //Need
 //Mx 0.5, My=0; Mz=-0.86  -> Heading ~ 0
@@ -799,26 +797,11 @@ bServoOff=true;
 
 
 
-float elatrim;
-float alatrim;
 
 
-void AutoTrimAct()
-{
-elatrim+=Scaled_DSM2_Result.fElevator;
-alatrim+=Scaled_DSM2_Result.fAlieron;
-}
-
-#define AUTO_TRIM (0x8000)
 
 void NewSwitchState(WORD sw, WORD old)
 {
-static DWORD LastAutoTrimTime;
-if ((sw &AUTO_TRIM) && (!(old &AUTO_TRIM)) && ((LastAutoTrimTime+5) < Secs))
-	{
-	LastAutoTrimTime=Secs;
-	AutoTrimAct();
-    }
 }
 
 const float KAlg = (1.0/45);
@@ -981,20 +964,21 @@ Screen[1][0]='Z';
 		 
 		 if(!bMode)
 		 {
-		 SetServo(SERVO_ELEVATOR,Scaled_DSM2_Result.fElevator+elatrim);
-		 SetServo(SERVO_ALIERON ,Scaled_DSM2_Result.fAlieron+alatrim);
+		 SetServo(SERVO_ELEVATOR,Scaled_DSM2_Result.fElevator);
+		 SetServo(SERVO_ALIERON ,Scaled_DSM2_Result.fAlieron);
 		 SetServo(SERVO_RUDDER,Scaled_DSM2_Result.fRudder);
 		 SetServo(SERVO_THROTTLE,Scaled_DSM2_Result.fThrottle*(1/0.65));
 		 }
 		 else
 		 {float TargetRoll;
-			 if(nMode==0) TargetRoll=-15;
+			 if(nMode==0) TargetRoll=-25;
 			 else
-			 if(nMode==2) TargetRoll=15;
+			 if(nMode==2) TargetRoll=25;
 			 else
 			TargetRoll=0;
 		  SetServo(SERVO_ALIERON, AutoAlieron(TargetRoll));
-		  SetServo(SERVO_ELEVATOR,Scaled_DSM2_Result.fElevator+elatrim);
+
+		  SetServo(SERVO_ELEVATOR,Scaled_DSM2_Result.fElevator);
 		  SetServo(SERVO_RUDDER,Scaled_DSM2_Result.fRudder);
 		  SetServo(SERVO_THROTTLE,Scaled_DSM2_Result.fThrottle*(1/0.65));
 		 }
@@ -1036,7 +1020,11 @@ Screen[1][0]='Z';
 		  // siprintf((char *)Screen[1],"LOG %08X",LogPagesWritten);
 		   LastStatusUpTime=Secs;
 		   if(gSlew>1.0) gSlew-=1.0;
-		   iprintf("Log=%dMode=%d nMode=%d\r\n",bLog,bMode,nMode);
+		   printf("Log=%dMode=%d nMode=%d r%6g p%6g y%6g\r\n",bLog,bMode,nMode,
+				  imu_state.roll*57.0,
+				  imu_state.pitch*57.0,
+				  imu_state.yaw*57.0  
+				  );
 		}
 
 
