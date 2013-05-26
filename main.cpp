@@ -67,7 +67,7 @@ REPORT_FILE
 #include "log.h"
 #include "prio.h"
 #include "imu.h"
-
+#include "exmath.h"
 
 #define PITOT_A2D (4)
 
@@ -806,10 +806,17 @@ void NewSwitchState(WORD sw, WORD old)
 
 const float KAlg = (1.0/45);
 
-float AutoAlieron(float target_roll)
+float AutoAlieron(float target_head)
 {
-float croll=imu_state.roll*57;
+float croll=imu_state.roll*DEGREES_PER_RADIAN;
+float chead=imu_state.yaw*DEGREES_PER_RADIAN;
+float herr=(target_head-chead);
+if(herr>180) herr-=360.0;
+if(herr<-180) herr+=360.0;
 
+float target_roll=herr;
+if(target_roll>45.0) target_roll=45.0;
+if(target_roll<-45.0) target_roll=-45.0;
 return (target_roll-croll)*KAlg;
 }
 
@@ -970,13 +977,13 @@ Screen[1][0]='Z';
 		 SetServo(SERVO_THROTTLE,Scaled_DSM2_Result.fThrottle*(1/0.65));
 		 }
 		 else
-		 {float TargetRoll;
-			 if(nMode==0) TargetRoll=-25;
+		 {float TargetHead;
+			 if(nMode==0) TargetHead=-120;
 			 else
-			 if(nMode==2) TargetRoll=25;
+			 if(nMode==2) TargetHead=120;
 			 else
-			TargetRoll=0;
-		  SetServo(SERVO_ALIERON, AutoAlieron(TargetRoll));
+			TargetHead=0.0;
+		    SetServo(SERVO_ALIERON, AutoAlieron(TargetHead));
 
 		  SetServo(SERVO_ELEVATOR,Scaled_DSM2_Result.fElevator);
 		  SetServo(SERVO_RUDDER,Scaled_DSM2_Result.fRudder);
