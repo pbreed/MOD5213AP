@@ -809,10 +809,10 @@ const float KAlg = (1.0/45);
 float AutoAlieron(float target_head)
 {
 float croll=imu_state.roll*DEGREES_PER_RADIAN;
-float chead=imu_state.yaw*DEGREES_PER_RADIAN;
+float chead=(float)GPS_Result.Heading*1.0E-5;
 float herr=(target_head-chead);
-if(herr>180) herr-=360.0;
-if(herr<-180) herr+=360.0;
+while(herr>180) herr-=360.0;
+while(herr<-180) herr+=360.0;
 
 float target_roll=herr;
 if(target_roll>45.0) target_roll=45.0;
@@ -965,10 +965,12 @@ Screen[1][0]='Z';
 	 
 	 if(LastRCFrame != DSM2_Result.ReadingNum)
 	 { 
-	   if ((bLog) && ((DSM2_Result.ReadingNum &3)==3))
+	   if ((bLog) && ((DSM2_Result.ReadingNum &15)==15))
 		    LogRC(*((DSM2_READING*)&DSM2_Result));
 		 LastRCFrame= DSM2_Result.ReadingNum;
 		 
+		 static bool LastbMode;
+		 static int LastnMode;
 		 if(!bMode)
 		 {
 		 SetServo(SERVO_ELEVATOR,Scaled_DSM2_Result.fElevator);
@@ -977,19 +979,27 @@ Screen[1][0]='Z';
 		 SetServo(SERVO_THROTTLE,Scaled_DSM2_Result.fThrottle*(1/0.65));
 		 }
 		 else
-		 {float TargetHead;
-			 if(nMode==0) TargetHead=-120;
-			 else
-			 if(nMode==2) TargetHead=120;
-			 else
-			TargetHead=0.0;
-		    SetServo(SERVO_ALIERON, AutoAlieron(TargetHead));
+		 {static float TargetHead;
+		  if(!LastbMode)
+		  {
+			TargetHead=GPS_Result.Heading*1.0E-5;
+		  }
+		  else
+		  {
+		   if((nMode==2) && (LastnMode==1)) TargetHead+=90.0;
+		   if((nMode==0) && (LastnMode==1)) TargetHead-=90.0;
+		   if(TargetHead>180.0) TargetHead-=360.0;
+		   if(TargetHead<-180) TargetHead+=360.0;
+		  }
+
+		  SetServo(SERVO_ALIERON, AutoAlieron(TargetHead));
 
 		  SetServo(SERVO_ELEVATOR,Scaled_DSM2_Result.fElevator);
 		  SetServo(SERVO_RUDDER,Scaled_DSM2_Result.fRudder);
 		  SetServo(SERVO_THROTTLE,Scaled_DSM2_Result.fThrottle*(1/0.65));
 		 }
-
+		 LastbMode=bMode;
+		 LastnMode=nMode;
 
 		// if(LastXbeeSwitch!=Xbee_Result.switches) NewSwitchState(Xbee_Result.switches,LastXbeeSwitch);
 		// LastXbeeSwitch=Xbee_Result.switches;
