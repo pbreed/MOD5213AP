@@ -6,6 +6,7 @@
 #include <string>
 #include <iostream>
 #include <fstream>
+#include "rpn.h"
 using namespace std;
 
 #define LOG_REC_START  (0xEB)
@@ -121,7 +122,9 @@ struct DisplayListElement
 {
 DisplayListElement * pNext;
 char m_buffer[256];
+double m_val;
 string  m_slabel;
+string s_calc;
 };
 
 
@@ -250,6 +253,8 @@ public:
 	StructureElement(int siz,int offset, int data_type, std::string &sName) {m_data_type=data_type; m_offset=offset; m_sName=sName; m_siz=siz;  bShowThisElement=false; pParent=NULL; pDisplayElement=NULL;};
 	const char * GetTypeName();
 	int Render(const unsigned char * buf, char * outbuf, int maxlen); 
+	double Val(const unsigned char * buf); 
+
 	void SetShow(DisplayListElement ** pList=NULL); 
 	void AddAtEnd(DisplayListElement ** pList); 
 };
@@ -262,7 +267,9 @@ if(!pList) return;
 DisplayListElement * pEl=new DisplayListElement;
 pEl->m_slabel=m_sName;
 pEl->pNext=NULL;
+pEl->m_buffer[0]=0;
 DisplayListElement * pHead =*pList;
+pDisplayElement=pEl;
 
 if(pHead==NULL) 
 {
@@ -488,6 +495,28 @@ return 0;
 }
 
 
+double StructureElement::Val(const unsigned char * buf)
+{
+double d;
+
+	switch (m_data_type) 
+	{
+	case 1: return (double)getuint(buf,m_offset,1);//u8
+	case 2: return (double)getint(buf,m_offset,1);//"i8";
+	case 3: return (double)getuint(buf,m_offset,2);//"u16";
+	case 4: return (double)getint(buf,m_offset,2);//"i16";
+	case 5: return (double)getuint(buf,m_offset,4);//"u32";
+	case 6: return (double)getint(buf,m_offset,4);//"i32";
+	case 7: break; //"pu8";
+	case 8: break; //"pi8";
+	case 9: return (double)getfloat(buf,m_offset);//"float";
+	case 10: return getdouble(buf,m_offset);
+	}
+return 0.0;
+}
+
+
+
 void MessageProcess::ShowRecord(const unsigned char * buildbuf,int len)
 {
 if(!bShowEverything) return;
@@ -590,17 +619,25 @@ char obuf[256];
 while(pEl)
 {
 if(pEl->bShowThisElement) 
+	{
+	if(pEl->pDisplayElement)
+	{
+	 pEl->Render(buildbuf,pEl->pDisplayElement->m_buffer,256);
+	 pEl->pDisplayElement->m_val=pEl->Val(buildbuf);
+	}
+	else
 	{pEl->Render(buildbuf,obuf,256);
 	 fprintf(fout,"%s,",obuf);
 	 bHit=true;
 	}
+   }
  pEl=pEl->pNext;
 }
 if(bHit) fprintf(fout,"\n");
 }
 
 
-
+bool bClearBetween;
 
 void ParseViewFile(const char * name, DisplayListElement * &pDispHead)
 {
@@ -635,14 +672,25 @@ string line;
 
 
 	  }
-
 	  else
+    	  if(line.find("CLEAR:")!=string::npos)
+		  {
+			bClearBetween=true;
+		  }
+      else
 	  {
       int pos=line.find_first_of(".");
 	  if(pos!=string::npos)
 		{
 		string Frame=line.substr(0,pos);
 		string Item=line.substr(pos+1,string::npos);
+		string calc="";
+		pos=Item.find_first_of(",");
+		if(pos!=string::npos)
+		{
+		 calc=Item.substr(pos+1,string::npos);
+		 Item=Item.substr(0,pos);
+		}
 		StructureRecord * pRec=StructureRecord::Find(Frame);
 		if(pRec)
 		{
@@ -659,6 +707,12 @@ string line;
 			 {
 				 pEl->SetShow(&pDispHead);
 				 cerr<<"Showing "<<Item<<" In Record "<<Frame<<endl;
+				 if(calc.length()) 
+					 {
+					  pEl->pDisplayElement->s_calc=calc;
+					  cerr<<"Calc="<<pEl->pDisplayElement->s_calc<<endl;
+
+					 }
 			 }
 			 else
 			 {
@@ -918,26 +972,50 @@ if ( fp != NULL )
 		cerr<<"About to dump"<<endl;
 		while(pEl)
 		{
-		  fprintf(fout,"%s,",pEl->m_slabel.c_str());
+		  fprintf(fout,"%20s,",pEl->m_slabel.c_str());
 		 pEl=pEl->pNext;
 		}
 		fprintf(fout,"\n");
 
-		  Now to build records and dump.....
 
-		/*while ((rec_type=GetRecord(buf,len,pos,dest_buffer,(int)RXBUF_SIZE, rx_len))>=0)
+		while ((rec_type=GetRecord(buf,len,pos,dest_buffer,(int)RXBUF_SIZE, rx_len))>=0)
 		{
 			if((bUseError) ||(!bError))
 			{
-				if(pRecs[rec_type]) pRecs[rec_type]->ShowRecord(dest_buffer,rx_len);
+				if(pRecs[rec_type]) 
+					{pRecs[rec_type]->ShowRecord(dest_buffer,rx_len);  
+					}
 				else
 				fprintf(stderr,"Got Undefined Record type %d of len %d\n",rec_type,rx_len);
+				
 				if(pRecs[rec_type]->GetBreak())
 				{
+					DisplayListElement * pEl=pDispHead;
+					while(pEl)
+					{
+						if(pEl->m_buffer[0])
+						{
+                        double v=pEl->m_val;
+					     if(pEl->s_calc.length())
+					     {
+						 //cerr<<"v="<<v<<" S="<<pEl->s_calc<<endl;
+					      v=eval(v,pEl->s_calc);
+					     }
+					     fprintf(fout,"%+20.10g,",v);
+						}
+						else
+						fprintf(fout,"%20s,","");
+						if(bClearBetween) pEl->m_buffer[0]=0;
+						pEl=pEl->pNext;
+					}
+					fprintf(fout,"\n");
+
+
+
 				}
 			}
 		  
-		}*/
+		}
 	}
 	else
 	{
