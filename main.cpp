@@ -253,6 +253,10 @@ v*=2.0/(fmax-fmin);
 return v;
 }
 
+static float Ball;
+
+
+
 const float Kgx=1.0*(2.663161E-4);	//32768 = 500 dps
 const float Kgy=1.0*(2.663161E-4);	//32768 = 500 DPS
 const float Kgz=1.0*(2.663161E-4);	//32768= 500 DPS
@@ -310,7 +314,8 @@ void FillInValues(VehicleSense & vs, bool bFillMag )
 	        vs.Ax=(float)(ImuResult.Ay-SensorConfig.accel_zero[1])*Ka;
 										
 			vs.Ay=(float)(ImuResult.Ax-SensorConfig.accel_zero[0])*Ka;
-	        
+	        Ball=vs.Ay;
+
 			vs.Az=(float)(ImuResult.Az-SensorConfig.accel_zero[2])*Ka;
 
 //Need
@@ -703,25 +708,26 @@ else
 		   gLastMagSerial=Compass_Result.ReadingNum;
 		   FillInValues(vs,true);
 		   IMU_Step(vs,imu_state,gSlew);
+		   
 		   if(bLog) 
-			   {
-			   static StateRec	sr;
-	           sr.Ax=      ImuResult.Ax;
-           	sr.Ay=         ImuResult.Ay;
-           	sr.Az=         ImuResult.Az;
-           	sr.Gx=         ImuResult.Gx;
-           	sr.Gy=         ImuResult.Gy;
-           	sr.Gz=         ImuResult.Gz;
-           	sr.Mag_X=      Compass_Result.Mag_X;
-           	sr.Mag_Z=      Compass_Result.Mag_Z;
-           	sr.Mag_Y=      Compass_Result.Mag_Y;
+		    {
+			static StateRec	sr;
+	        sr.Ax=         vs.Ax;
+           	sr.Ay=         vs.Ay;
+           	sr.Az=         vs.Az;
+           	sr.Gx=         vs.Gx;
+           	sr.Gy=         vs.Gy;
+           	sr.Gz=         vs.Gz;
+           	sr.Mag_X=      vs.Mx;
+           	sr.Mag_Z=      vs.My;
+           	sr.Mag_Y=      vs.Mz;
            	sr.roll=       imu_state.roll;
            	sr.pitch=      imu_state.pitch;
            	sr.yaw=        imu_state.yaw;
            	sr.dwPressure= Alt_Result.dwPressure;    
            	sr.pitot=ReadA2D(PITOT_A2D);
-			    LogState(sr);
-			   }
+			LogState(sr);
+		    }
 		   
 		
 	   }
@@ -804,20 +810,41 @@ void NewSwitchState(WORD sw, WORD old)
 {
 }
 
-const float KAlg = (1.0/45);
+const float KAlg = (0.75/15);
+
+static float CurGPSHead;
+static float LastGPSHead;
+const float RudderGain=0.12;
+
+float AutoRudder()
+{
+return RudderGain*Ball;
+}
 
 float AutoAlieron(float target_head)
 {
-float croll=imu_state.roll*DEGREES_PER_RADIAN;
-float chead=(float)GPS_Result.Heading*1.0E-5;
-float herr=(target_head-chead);
+//float croll=imu_state.roll*DEGREES_PER_RADIAN;
+
+
+float herr=(target_head-CurGPSHead);
 while(herr>180) herr-=360.0;
 while(herr<-180) herr+=360.0;
 
-float target_roll=herr;
-if(target_roll>45.0) target_roll=45.0;
-if(target_roll<-45.0) target_roll=-45.0;
-return (target_roll-croll)*KAlg;
+float Rate=CurGPSHead-LastGPSHead;
+while(Rate>180) Rate-=360.0;
+while(Rate<-180) Rate-=360.0;
+
+float target_rate=herr;
+if(target_rate<-15) target_rate=-15;
+if(target_rate>15) target_rate=15;
+
+
+//float target_roll=herr;
+//if(target_roll>45.0) target_roll=45.0;
+//if(target_roll<-45.0) target_roll=-45.0;
+//return (target_roll-croll)*KAlg;
+
+return target_rate*KAlg;
 }
 
 
@@ -982,7 +1009,7 @@ Screen[1][0]='Z';
 		 {static float TargetHead;
 		  if(!LastbMode)
 		  {
-			TargetHead=GPS_Result.Heading*1.0E-5;
+			TargetHead=CurGPSHead;
 		  }
 		  else
 		  {
@@ -990,12 +1017,13 @@ Screen[1][0]='Z';
 		   if((nMode==0) && (LastnMode==1)) TargetHead-=90.0;
 		   if(TargetHead>180.0) TargetHead-=360.0;
 		   if(TargetHead<-180) TargetHead+=360.0;
-		  }
+		   }
 
 		  SetServo(SERVO_ALIERON, AutoAlieron(TargetHead));
-
+		  //SetServo(SERVO_ALIERON ,Scaled_DSM2_Result.fAlieron);
 		  SetServo(SERVO_ELEVATOR,Scaled_DSM2_Result.fElevator);
-		  SetServo(SERVO_RUDDER,Scaled_DSM2_Result.fRudder);
+		  SetServo(SERVO_RUDDER,AutoRudder());
+		  //SetServo(SERVO_RUDDER,Scaled_DSM2_Result.fRudder);
 		  SetServo(SERVO_THROTTLE,Scaled_DSM2_Result.fThrottle*(1/0.65));
 		 }
 		 LastbMode=bMode;
@@ -1024,6 +1052,9 @@ Screen[1][0]='Z';
 	 if(LastGPSFrame!=GPS_Result.ReadingNum)
 	 {
 		 LastGPSFrame=GPS_Result.ReadingNum;
+		 LastGPSHead=CurGPSHead;
+		 CurGPSHead=(float)GPS_Result.Heading*1.0E-5;
+
 	     if(bLog) LogGps(*((GPS_READING *)&GPS_Result));
 	   
 
@@ -1037,10 +1068,11 @@ Screen[1][0]='Z';
 		  // siprintf((char *)Screen[1],"LOG %08X",LogPagesWritten);
 		   LastStatusUpTime=Secs;
 		   if(gSlew>1.0) gSlew-=1.0;
-		   printf("Log=%dMode=%d nMode=%d r%6g p%6g y%6g\r\n",bLog,bMode,nMode,
+		   printf("Log=%dMode=%d nMode=%d r%6g p%6g y%6g ball:%g\r\n",bLog,bMode,nMode,
 				  imu_state.roll*57.0,
 				  imu_state.pitch*57.0,
-				  imu_state.yaw*57.0  
+				  imu_state.yaw*57.0  ,
+				  Ball
 				  );
 		}
 

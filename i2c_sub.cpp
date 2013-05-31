@@ -185,7 +185,9 @@ while(1)
 	if(rv<=I2C_MASTER_OK )
 		{
 		 pCompass->ReadingNum=ReadingNumber++;
+		 OSLock();
 		 memcpy((void *)&Compass_Result,pCompass,sizeof(COMPASS_READING));
+		 OSUnlock();
 		 bNewCompass=true;
          }
 	buffer[0]=0x0;
