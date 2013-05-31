@@ -1,0 +1,8 @@
+GPS Frame.Heading,1.0E-5,*,#,180,>,-360,*,+
+GPS Frame.HMSL
+DSM2 Frame.V[5],#,600,>,:,400,>,+
+DSM2 Frame.V[6],500,>
+BREAK:GPS Frame
+CLEAR:
+State.Yaw,rad2deg
+
