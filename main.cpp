@@ -927,7 +927,7 @@ if(target_roll<-45.0) target_roll=-45.0;
 
 //Adjust for centrifugal
 croll+=estimated_roll_error; //reading 45+-15 = 30 which is real
-return (target_roll-croll)*KAlg;
+return (target_roll-croll)*KAlg*Scaled_DSM2_Result.rtrim;
 }
 
 
