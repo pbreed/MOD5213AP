@@ -652,8 +652,29 @@ void GPSTest()
 
 }
 
+
+/*extern volatile unsigned char LastRC[256];
+extern volatile unsigned char LastPitLsb[256];
+extern volatile unsigned char LastRcVal;
+extern volatile bool bSuspendRcCap;
+
+*/
 void RCTest()
 {
+ /*   while(sgetchar(0)!='X')
+	{
+	 bSuspendRcCap=true;
+	 int n=0;
+	 for(BYTE i=LastRcVal-64; i!=LastRcVal; i++)
+	 {
+	  iprintf("R:%02X T%02X,",LastRC[i],LastPitLsb[i]);
+	  if(n++==8) {iprintf("\r\n"); n=0; }
+	  }
+	 }
+	 bSuspendRcCap=false;
+	return;
+   */
+	 
 	WORD LastReadingNum=DSM2_Result.ReadingNum;
 	iprintf("RC Test Hit X to exit loop\r\n");
 	while((!charavail(0)) || (sgetchar(0)!='X'))
@@ -665,7 +686,7 @@ void RCTest()
 		   // printf("%5d %5d %5d %5d %5d %5d %5d %5d\r\n",DSM2_Result.val[0],DSM2_Result.val[1],DSM2_Result.val[2],DSM2_Result.val[3],DSM2_Result.val[4],DSM2_Result.val[5],DSM2_Result.val[6],DSM2_Result.val[7]);
 		   // iprintf("%4d,%4d,%4d,%4d %04X %04X %04X %04X %04X\r\n",Xbee_Result.nElevator,Xbee_Result.nAlieron ,Xbee_Result.nRudder,Xbee_Result.nThrottle,Xbee_Result.nN1,Xbee_Result.nN2,Xbee_Result.nN3,Xbee_Result.nN4,Xbee_Result.switches);
 		   //printf("E:%5g,A:%5g,R:%5g,T:%5g\r\n",Scaled_DSM2_Result.fElevator,Scaled_DSM2_Result.fAlieron ,Scaled_DSM2_Result.fRudder,Scaled_DSM2_Result.fThrottle);
-		   for(int i=0; i<8; i++) iprintf("%5d ",DSM2_Result.val[i]);
+		   for(int i=0; i<10; i++) iprintf("%5d ",DSM2_Result.val[i]);
 		   iprintf("\r\n");
 		}
 	}
@@ -877,7 +898,8 @@ float best_roll_guess=atanf(GYawX4*((float)GPS_Result.Speed)*0.000254842);
 
 float croll=imu_state.roll*DEGREES_PER_RADIAN;
 
-estimated_roll_error+=0.1*(croll-best_roll_guess);  //real roll 30 reading is 45  error is -15
+//This should be called at 50Hz so 0.005 is 100% corection in 2 sec
+estimated_roll_error+=0.005*(croll-best_roll_guess);  //real roll 30 reading is 45  error is -15
 
 	
 	
@@ -894,7 +916,6 @@ if(target_roll<-45.0) target_roll=-45.0;
 
 //Adjust for centrifugal
 croll+=estimated_roll_error; //reading 45+-15 = 30 which is real
-
 return (target_roll-croll)*KAlg;
 }
 
@@ -1171,11 +1192,15 @@ Screen[1][0]='Z';
 		  // siprintf((char *)Screen[1],"LOG %08X",LogPagesWritten);
 		   LastStatusUpTime=Secs;
 		   if(gSlew>1.0) gSlew-=1.0;
-		   printf("Log=%dMode=%d nMode=%d r%6g p%6g y%6g ball:%g\r\n",bLog,bMode,nMode,
+		   printf("Log=%dMode=%d nMode=%d r%6g p%6g y%6g lt%g rt%g\r\n",
+				  bLog,
+				  bMode,
+				  nMode,
 				  imu_state.roll*57.0,
 				  imu_state.pitch*57.0,
-				  imu_state.yaw*57.0  ,
-				  Ball
+				  imu_state.yaw*57.0,
+				  Scaled_DSM2_Result.ltrim,
+				  Scaled_DSM2_Result.rtrim
 				  );
 		}
 
