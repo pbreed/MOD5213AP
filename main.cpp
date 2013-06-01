@@ -838,7 +838,6 @@ else
 if(f<-lim) f=-lim;
 }
 
-const float KAlg = (0.75/15);
 const float KHeadingCorrection = 1.0;
 const float MaxTurnRate=30.0;
 const float RudderGain=0.12;
@@ -856,7 +855,53 @@ float AutoRudder()
 return RudderGain*Ball;
 }
 
+
+const float KAlg = (1.0/45);
+
+float estimated_roll_error;
+
+
 float AutoAlieron(float target_head)
+{
+
+//Ok we have turning roll error...
+//Given GPS velocity... 
+//And rate of turn we have estimated actual roll error
+//float cur_velocity=GPS_Result.Speed*0.01;
+//float cur_rate=GYawX4*RadX4toDps; //Rate is deg per second of yaw added to roll rate
+//float cent_accell_g=(cur_rate*cur_velocity)*0.001779133;
+//float best_roll_guess=atan(cent_accell_g)*57.29577951;
+
+
+float best_roll_guess=atanf(GYawX4*((float)GPS_Result.Speed)*0.000254842);
+
+float croll=imu_state.roll*DEGREES_PER_RADIAN;
+
+estimated_roll_error+=0.1*(croll-best_roll_guess);  //real roll 30 reading is 45  error is -15
+
+	
+	
+
+float chead=(float)GPS_Result.Heading*1.0E-5;
+float herr=(target_head-chead);
+while(herr>180) herr-=360.0;
+while(herr<-180) herr+=360.0;
+float target_roll=herr;
+
+
+if(target_roll>45.0) target_roll=45.0;
+if(target_roll<-45.0) target_roll=-45.0;
+
+//Adjust for centrifugal
+croll+=estimated_roll_error; //reading 45+-15 = 30 which is real
+
+return (target_roll-croll)*KAlg;
+}
+
+
+
+
+float XAutoAlieron(float target_head)
 {
 
 
