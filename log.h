@@ -9,15 +9,15 @@ struct sensor_saved_config ; //forward
 
 struct StateRec
 {
-short Ax;
-short Ay;
-short Az;
-short Gx;
-short Gy;
-short Gz;
-short Mag_X;
-short Mag_Z;
-short Mag_Y;
+float Ax;
+float Ay;
+float Az;
+float Gx;
+float Gy;
+float Gz;
+float Mag_X;
+float Mag_Z;
+float Mag_Y;
 float roll;
 float pitch;
 float yaw;
