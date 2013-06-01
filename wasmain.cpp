@@ -204,10 +204,6 @@ return 0.0;
 
 void ProcessImu();
 
-float PitotZero;
-
-
-
 void ImuZero()
  {
  WORD LastImuSerial =ImuResult.ReadingNum;
@@ -215,8 +211,6 @@ void ImuZero()
  iprintf("Starting IMU Zero \r\n");
  bStaticZero=true;
  bServoOff=true;
- double pitotsum=0;
- int   pitotn=0;
 
 
  while(Secs<(ActiveTime+12))
@@ -226,17 +220,12 @@ void ImuZero()
   {
 	  ProcessImu();
 	  LastImuSerial =ImuResult.ReadingNum;
-	  pitotsum+=ReadA2D(PITOT_A2D);
-	  pitotn++;
   }
  }
 
  iprintf("AX avg = %ld \r\n",ImuZeros.Azerosx>>13);
  iprintf("AY avg = %ld \r\n",ImuZeros.Azerosy>>13);
  iprintf("AZ avg = %ld \r\n",ImuZeros.Azerosz>>13);
-
- PitotZero=(pitotsum/(double)pitotn);
-
 
  }
 
@@ -663,29 +652,8 @@ void GPSTest()
 
 }
 
-
-/*extern volatile unsigned char LastRC[256];
-extern volatile unsigned char LastPitLsb[256];
-extern volatile unsigned char LastRcVal;
-extern volatile bool bSuspendRcCap;
-
-*/
 void RCTest()
 {
- /*   while(sgetchar(0)!='X')
-	{
-	 bSuspendRcCap=true;
-	 int n=0;
-	 for(BYTE i=LastRcVal-64; i!=LastRcVal; i++)
-	 {
-	  iprintf("R:%02X T%02X,",LastRC[i],LastPitLsb[i]);
-	  if(n++==8) {iprintf("\r\n"); n=0; }
-	  }
-	 }
-	 bSuspendRcCap=false;
-	return;
-   */
-	 
 	WORD LastReadingNum=DSM2_Result.ReadingNum;
 	iprintf("RC Test Hit X to exit loop\r\n");
 	while((!charavail(0)) || (sgetchar(0)!='X'))
@@ -697,7 +665,7 @@ void RCTest()
 		   // printf("%5d %5d %5d %5d %5d %5d %5d %5d\r\n",DSM2_Result.val[0],DSM2_Result.val[1],DSM2_Result.val[2],DSM2_Result.val[3],DSM2_Result.val[4],DSM2_Result.val[5],DSM2_Result.val[6],DSM2_Result.val[7]);
 		   // iprintf("%4d,%4d,%4d,%4d %04X %04X %04X %04X %04X\r\n",Xbee_Result.nElevator,Xbee_Result.nAlieron ,Xbee_Result.nRudder,Xbee_Result.nThrottle,Xbee_Result.nN1,Xbee_Result.nN2,Xbee_Result.nN3,Xbee_Result.nN4,Xbee_Result.switches);
 		   //printf("E:%5g,A:%5g,R:%5g,T:%5g\r\n",Scaled_DSM2_Result.fElevator,Scaled_DSM2_Result.fAlieron ,Scaled_DSM2_Result.fRudder,Scaled_DSM2_Result.fThrottle);
-		   for(int i=0; i<10; i++) iprintf("%5d ",DSM2_Result.val[i]);
+		   for(int i=0; i<8; i++) iprintf("%5d ",DSM2_Result.val[i]);
 		   iprintf("\r\n");
 		}
 	}
@@ -870,9 +838,12 @@ else
 if(f<-lim) f=-lim;
 }
 
+const float KAlg = (0.75/30);
 const float KHeadingCorrection = 1.0;
 const float MaxTurnRate=30.0;
 const float RudderGain=0.12;
+const float KRollConstant =0.2;
+
 
 
 static float CurGPSHead_deg;
@@ -887,53 +858,7 @@ float AutoRudder()
 return RudderGain*Ball;
 }
 
-
-const float KAlg = (1.0/45);
-
-float estimated_roll_error;
-
-
 float AutoAlieron(float target_head)
-{
-
-//Ok we have turning roll error...
-//Given GPS velocity... 
-//And rate of turn we have estimated actual roll error
-//float cur_velocity=GPS_Result.Speed*0.01;
-//float cur_rate=GYawX4*RadX4toDps; //Rate is deg per second of yaw added to roll rate
-//float cent_accell_g=(cur_rate*cur_velocity)*0.001779133;
-//float best_roll_guess=atan(cent_accell_g)*57.29577951;
-
-
-float best_roll_guess=atanf(GYawX4*((float)GPS_Result.Speed)*0.000254842);
-
-float croll=imu_state.roll*DEGREES_PER_RADIAN;
-
-//This should be called at 50Hz so 0.005 is 100% corection in 2 sec
-estimated_roll_error+=0.005*(croll-best_roll_guess);  //real roll 30 reading is 45  error is -15
-
-	
-	
-
-float chead=(float)GPS_Result.Heading*1.0E-5;
-float herr=(target_head-chead);
-while(herr>180) herr-=360.0;
-while(herr<-180) herr+=360.0;
-float target_roll=herr;
-
-
-if(target_roll>45.0) target_roll=45.0;
-if(target_roll<-45.0) target_roll=-45.0;
-
-//Adjust for centrifugal
-croll+=estimated_roll_error; //reading 45+-15 = 30 which is real
-return (target_roll-croll)*KAlg;
-}
-
-
-
-
-float XAutoAlieron(float target_head)
 {
 
 
@@ -942,7 +867,7 @@ while(herr>180) herr-=360.0;
 while(herr<-180) herr+=360.0;
 
 
-float cur_rate=(GYawX4+GRollX4)*RadX4toDps; //Rate is deg per second of yaw added to roll rate
+float cur_rate=(GYawX4+GRollX4*KRollConstant)*RadX4toDps; //Rate is deg per second of yaw added to roll rate
 float target_rate=herr*KHeadingCorrection;
 DoBipolarLimit(target_rate,MaxTurnRate);
 
@@ -975,30 +900,6 @@ return vvError*ElevatorGain+PitchZeroElevator;
 }
 
 */
-
-/*
-//El tuning
-const  float pIas=0.02;
-const  float pdIas=0.3;    //0.1
-const  float piIas=0.0006;//0.0001
-
-float AutoElevator(float targetkias)
-{
-static float last_ias;
-float iasCount=sqrt((ReadA2D(PITOT_A2D)-ias_zero))*IasScale;
-
-float ierror=(ias-targetias);
-iiaserror+=ierror;
-float delta=(ias-last_ias);
-last_ias=ias;
-return piIas*iiaserror+pIas*ierror +delta*pdIas;
-}
-*/
-
-
-
-
-
 
 // Main task 
 void UserMain( void * pd)
@@ -1118,7 +1019,6 @@ Screen[1][0]='Z';
   bStaticZero=true;
  IMU_Init( ); //Zero the IMU
  EndStatic();
- ImuZeros.pitotzero=PitotZero;
  LogZeros(*((IMU_ZEROS *)&ImuZeros));
  
  siprintf((char *)Screen[0],"              ");
@@ -1228,15 +1128,11 @@ Screen[1][0]='Z';
 		  // siprintf((char *)Screen[1],"LOG %08X",LogPagesWritten);
 		   LastStatusUpTime=Secs;
 		   if(gSlew>1.0) gSlew-=1.0;
-		   printf("Log=%dMode=%d nMode=%d r%6g p%6g y%6g lt%g rt%g\r\n",
-				  bLog,
-				  bMode,
-				  nMode,
+		   printf("Log=%dMode=%d nMode=%d r%6g p%6g y%6g ball:%g\r\n",bLog,bMode,nMode,
 				  imu_state.roll*57.0,
 				  imu_state.pitch*57.0,
-				  imu_state.yaw*57.0,
-				  Scaled_DSM2_Result.ltrim,
-				  Scaled_DSM2_Result.rtrim
+				  imu_state.yaw*57.0  ,
+				  Ball
 				  );
 		}
 

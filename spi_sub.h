@@ -31,6 +31,7 @@ long Gzerosz;
 long Azerosx;
 long Azerosy;
 long Azerosz;
+float pitotzero;
 };
 
 

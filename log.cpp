@@ -514,6 +514,7 @@ void ShowZeros( IMU_ZEROS & item)
 	LogElement(Azerosx, "Azx"); 
 	LogElement(Azerosy, "Azy"); 
 	LogElement(Azerosz, "Azz"); 
+	LogElement(pitotzero,"Pzz");
 }
 
 
