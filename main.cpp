@@ -965,6 +965,30 @@ return vvError*ElevatorGain+PitchZeroElevator;
 
 */
 
+/*
+//El tuning
+const  float pIas=0.02;
+const  float pdIas=0.3;    //0.1
+const  float piIas=0.0006;//0.0001
+
+float AutoElevator(float targetkias)
+{
+static float last_ias;
+float iasCount=sqrt((ReadA2D(PITOT_A2D)-ias_zero))*IasScale;
+
+float ierror=(ias-targetias);
+iiaserror+=ierror;
+float delta=(ias-last_ias);
+last_ias=ias;
+return piIas*iiaserror+pIas*ierror +delta*pdIas;
+}
+*/
+
+
+
+
+
+
 // Main task 
 void UserMain( void * pd)
 {
