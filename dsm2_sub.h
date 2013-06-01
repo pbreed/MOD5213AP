@@ -7,7 +7,7 @@ short nThrottle;
 short nGear;
 short nAux2;
 */
-unsigned short val[8];
+unsigned short val[10];//Up to 10 channels 
 WORD  ReadingNum;
 };
 
@@ -22,6 +22,8 @@ float Gear;
 float Aux2;
 float n1;
 float n2;
+float rtrim;  //Ch 8 o->1024
+float ltrim;  //Ch 9 0 ->512
 };
 
 
