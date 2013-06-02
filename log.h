@@ -7,6 +7,16 @@ void LogService();
 
 struct sensor_saved_config ; //forward
 
+struct Aloop
+{
+float th;
+float brg;
+float tr;
+float rv;
+float ere;
+};
+
+
 struct StateRec
 {
 float Ax;
@@ -25,7 +35,7 @@ DWORD dwPressure;
 int pitot;
 };
 
-
+void LogALoop(Aloop & a);
 void LogState(StateRec & item);
 void LogImu  (IMU_READING & item);
 void LogMag  (COMPASS_READING & item);

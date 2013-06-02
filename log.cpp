@@ -69,7 +69,7 @@ DWORD LogErrors;
 #define CFG_TYPE  (0x18)
 #define RC_TYPE   (0x19)
 #define CSTATE_TYPE (0x20)
-
+#define ALOOP_TYPE (0x21)
 OS_CRIT LogShiftCrit;
 
 #define LOG_REC_START  (0xEB)
@@ -557,9 +557,27 @@ void ShowRC( DSM2_READING &item)
  	LogElement(val[5],"V[5]");
  	LogElement(val[6],"V[6]");
  	LogElement(val[7],"V[7]");
+ 	LogElement(val[8],"V[8]");
+  	LogElement(val[9],"V[9]");
 	LogElement(ReadingNum,"RN");
 }
 
+void ShowALoop(Aloop & item)
+{
+	LogStart(ALOOP_TYPE,"Aloop");
+	LogElement(th,"th");
+	LogElement(brg,"brg");
+	LogElement(tr,"tr");
+	LogElement(rv,"rv");
+	LogElement(ere,"ere");
+}
+
+
+void LogALoop(Aloop & item)
+{
+	LogRawRecord(ALOOP_TYPE ,(const unsigned char *)&item,sizeof(item));
+
+}
 
 void ShowState(StateRec & item)
 {
@@ -640,6 +658,7 @@ ShowZeros((*(( IMU_ZEROS * )& item)));
 ShowRC((*((DSM2_READING *)&item)));
 ShowGps((*((GPS_READING  * )&item)));
 ShowState((*((StateRec*)&item)));
+ShowALoop((*((Aloop   *)&item)));
 FileReporter::DumpList();
 
 
@@ -672,5 +691,7 @@ void FileReporter::ShowList()
  }
 
 }
+
+
 
 

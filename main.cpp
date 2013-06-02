@@ -915,8 +915,7 @@ estimated_roll_error+=0.005*(croll-best_roll_guess);  //real roll 30 reading is 
 	
 	
 
-float chead=(float)GPS_Result.Heading*1.0E-5;
-float herr=(target_head-chead);
+float herr=(target_head-CurGPSHead_deg);
 while(herr>180) herr-=360.0;
 while(herr<-180) herr+=360.0;
 float target_roll=herr;
@@ -926,8 +925,18 @@ if(target_roll>45.0) target_roll=45.0;
 if(target_roll<-45.0) target_roll=-45.0;
 
 //Adjust for centrifugal
-croll+=estimated_roll_error; //reading 45+-15 = 30 which is real
-return (target_roll-croll)*KAlg*Scaled_DSM2_Result.rtrim;
+croll+=(Scaled_DSM2_Result.ltrim*estimated_roll_error); //reading 45+-15 = 30 which is real
+
+float rv=(target_roll-croll)*KAlg*Scaled_DSM2_Result.rtrim; 
+static Aloop a;
+a.th=target_head;
+a.brg=best_roll_guess;
+a.tr=target_roll;
+a.rv=rv;
+a.ere=estimated_roll_error;
+LogALoop(a);
+
+return  rv;
 }
 
 
@@ -1143,7 +1152,7 @@ Screen[1][0]='Z';
 	 if(LastRCFrame != DSM2_Result.ReadingNum)
 	 { 
 	   if ((bLog) && ((DSM2_Result.ReadingNum &15)==15))
-		    LogRC(*((DSM2_READING*)&DSM2_Result));
+		 LogRC(*((DSM2_READING*)&DSM2_Result));
 		 LastRCFrame= DSM2_Result.ReadingNum;
 		 
 		 static bool LastbMode;
@@ -1163,6 +1172,7 @@ Screen[1][0]='Z';
 			TargetHead=CurGPSHead_deg;
 			TargetAlt=CurGPSAlt_m;
 			PitchZeroElevator=Scaled_DSM2_Result.fElevator;
+			estimated_roll_error=0;
 		  }
 		  else
 		  {
