@@ -17,6 +17,19 @@ float ere;
 };
 
 
+typedef struct
+{
+float alt_err;
+float target_vv;
+float vvError;
+float TargetPitch;
+float pitch_error;
+float rv;
+}epLog;
+
+
+
+
 struct StateRec
 {
 float Ax;
@@ -45,6 +58,7 @@ void LogAlt  (ALTIMETER_READING & item);
 void LogRC(DSM2_READING & item);
 void LogGps(GPS_READING  & gps);
 void LogConfig(sensor_saved_config &sc);
+void LogEp(epLog & item);
 
 extern volatile DWORD LogPagesWritten;
 extern DWORD LogErrors; 

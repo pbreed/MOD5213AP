@@ -70,6 +70,10 @@ DWORD LogErrors;
 #define RC_TYPE   (0x19)
 #define CSTATE_TYPE (0x20)
 #define ALOOP_TYPE (0x21)
+#define EPLOOP_TYPE (0x22)
+
+
+
 OS_CRIT LogShiftCrit;
 
 #define LOG_REC_START  (0xEB)
@@ -573,6 +577,24 @@ void ShowALoop(Aloop & item)
 }
 
 
+void ShowEPLoop(epLog & item)
+{
+	LogStart(EPLOOP_TYPE,"EpLoop");
+	LogElement(alt_err    ,"Alterr");
+	LogElement(target_vv  ,"tarvv");
+	LogElement(vvError    ,"vverr");
+	LogElement(TargetPitch,"tpitch");
+	LogElement(pitch_error,"perror");
+	LogElement(rv         ,"rv");
+}
+
+void LogEp(epLog & item)
+{
+	LogRawRecord(EPLOOP_TYPE ,(const unsigned char *)&item,sizeof(item));
+
+}
+
+
 void LogALoop(Aloop & item)
 {
 	LogRawRecord(ALOOP_TYPE ,(const unsigned char *)&item,sizeof(item));
@@ -635,7 +657,6 @@ void ShowGps(GPS_READING  &item)
 
 
 
-
 void ShowFileVer(const char * cp)
 {
 SPutRawByte(LOG_REC_START); 
@@ -659,6 +680,8 @@ ShowRC((*((DSM2_READING *)&item)));
 ShowGps((*((GPS_READING  * )&item)));
 ShowState((*((StateRec*)&item)));
 ShowALoop((*((Aloop   *)&item)));
+ShowEPLoop((*((epLog *)& item)));
+
 FileReporter::DumpList();
 
 

@@ -877,9 +877,10 @@ const float RudderGain=0.12;
 
 static float CurGPSHead_deg;
 static float CurGPSAlt_m; 
-static float CurGPSVV_mps;
+static float CurGPSVV_up_mps;
 static float CurGPSGS_mps;
 static float PitchZeroElevator;
+static float PitchZeroImu;
 
 
 float AutoRudder()
@@ -942,68 +943,53 @@ return  rv;
 
 
 
-float XAutoAlieron(float target_head)
-{
-
-
-float herr=(target_head-CurGPSHead_deg);
-while(herr>180) herr-=360.0;
-while(herr<-180) herr+=360.0;
-
-
-float cur_rate=(GYawX4+GRollX4)*RadX4toDps; //Rate is deg per second of yaw added to roll rate
-float target_rate=herr*KHeadingCorrection;
-DoBipolarLimit(target_rate,MaxTurnRate);
-
-//float target_roll=herr;
-//if(target_roll>45.0) target_roll=45.0;
-//if(target_roll<-45.0) target_roll=-45.0;
-//return (target_roll-croll)*KAlg;
-
-return (target_rate-cur_rate)*KAlg;
-}
-
-/*
-const float KAltToVVGain =0.5;
+const float KAltToVVGain =0.1;
 const float MaxVV=(10.0);
-const float PitchRateConstant = //Pitch rate is 4X Rad/sec to VV adjustment
-const float ElevatorGain = 0.025;//From vvError in m/sec to pitch 10 = 0.25 pitch.
-const float LevelPitch=5.0;
+const float KvvToPitch = 0.017453293; //1 deg per m/sec in radian
+const float ElevatorGain = 57/45.0;// 45 deg in rad From vvError in m/sec to pitch 10 = 0.25 pitch.
 
-float AutoElevator(float target_alt)
+
+
+float AutoElevatorAlt(float target_alt)
 {
-float alt_err=(target_alt-CurGPSAlt_m);
-float target_vv=(alt_err * KAltToVVGain);
-DoBipolarLimit(target_vv,MaxVV);
-float vvError=(target_vv-CurGPSVV_mps);
-//vvError is positive if we want maore altitude...
-float TargetPitch
 
-vvError-=GPitchX4*PitchRateConstant;  //Positive for nose up...pitch rate
-return vvError*ElevatorGain+PitchZeroElevator;
+static epLog ep;
+target_alt=(Scaled_DSM2_Result.	ltrim*100.0-100.0)+target_alt;
+ep.alt_err=(target_alt-CurGPSAlt_m);
+ep.target_vv=(ep.alt_err * KAltToVVGain);
+DoBipolarLimit(ep.target_vv,MaxVV);
+ep.vvError=(ep.target_vv-CurGPSVV_up_mps);
+
+//vvError is positive if we want maore altitude...
+ep.TargetPitch=(ep.vvError*KvvToPitch)+PitchZeroImu;  //Target is positove for more alt 
+ep.pitch_error=(ep.TargetPitch-imu_state.pitch);
+ep.rv=-(ep.pitch_error*ElevatorGain*Scaled_DSM2_Result.rtrim)+PitchZeroElevator;
+LogEp(ep);
+//printf("tp=%g, cp=%g",ep.pitch_error*57,imu_state.pitch*57);
+return ep.rv;
 }
 
-*/
 
-/*
 //El tuning
 const  float pIas=0.02;
 const  float pdIas=0.3;    //0.1
 const  float piIas=0.0006;//0.0001
+float iiaserror;
 
-float AutoElevator(float targetkias)
+float AutoElevatorSpd(float targetnias)
 {
 static float last_ias;
-float iasCount=sqrt((ReadA2D(PITOT_A2D)-ias_zero))*IasScale;
 
-float ierror=(ias-targetias);
+float iasCount=ReadA2D(PITOT_A2D)-PitotZero;
+
+float ierror=(iasCount-targetnias);
+ierror*=0.033; //1000 ==30
 iiaserror+=ierror;
-float delta=(ias-last_ias);
-last_ias=ias;
-return piIas*iiaserror+pIas*ierror +delta*pdIas;
+float delta=0.033*(iasCount-last_ias);
+last_ias=iasCount;
+float rv=PitchZeroElevator -Scaled_DSM2_Result.rtrim*(piIas*iiaserror+pIas*ierror +delta*pdIas);
+return rv;
 }
-*/
-
 
 
 
@@ -1172,7 +1158,9 @@ Screen[1][0]='Z';
 			TargetHead=CurGPSHead_deg;
 			TargetAlt=CurGPSAlt_m;
 			PitchZeroElevator=Scaled_DSM2_Result.fElevator;
+			PitchZeroImu=imu_state.pitch;
 			estimated_roll_error=0;
+			iiaserror=0;
 		  }
 		  else
 		  {
@@ -1182,12 +1170,15 @@ Screen[1][0]='Z';
 		   if(TargetHead<-180) TargetHead+=360.0;
 		   }
 
-		  SetServo(SERVO_ALIERON, AutoAlieron(TargetHead));
-          //SetServo(SERVO_ALIERON ,Scaled_DSM2_Result.fAlieron);
+		  //SetServo(SERVO_ALIERON, AutoAlieron(TargetHead));
+          SetServo(SERVO_ALIERON ,Scaled_DSM2_Result.fAlieron);
 		  
 		  
 		  SetServo(SERVO_ELEVATOR,Scaled_DSM2_Result.fElevator);
-		  //SetServo(SERVO_ELEVATOR,AutoElevator(TargetAlt);
+		  //SetServo(SERVO_ELEVATOR,AutoElevatorPitot(900));
+		  SetServo(SERVO_ELEVATOR,AutoElevatorAlt(TargetAlt));
+
+
 		  
 		  SetServo(SERVO_RUDDER,AutoRudder());
 		  //SetServo(SERVO_RUDDER,Scaled_DSM2_Result.fRudder);
@@ -1218,12 +1209,13 @@ Screen[1][0]='Z';
 	 }
 	 LogService();
 
+
 	 if(LastGPSFrame!=GPS_Result.ReadingNum)
 	 {
 		 LastGPSFrame=GPS_Result.ReadingNum;
 		 CurGPSHead_deg=(float)GPS_Result.Heading*1.0E-5;
 		 CurGPSAlt_m   =(float)GPS_Result.HMSL * 0.001; //mm to m
-		 CurGPSVV_mps =(float)GPS_Result.VEL_D* 0.01; //cm to m 
+		 CurGPSVV_up_mps =(float)GPS_Result.VEL_D* -0.01; //cm to m  up opposite VEL_D 
 		 CurGPSGS_mps =(float)GPS_Result.Speed*0.01; //cm to m
 	     if(bLog) LogGps(*((GPS_READING *)&GPS_Result));
 	   
